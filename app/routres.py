@@ -9,7 +9,7 @@ from .database import get_db
 from fastapi_mail import FastMail,MessageSchema
 
 
-from .schemas import UserCreate,UserVerify
+from .schemas import UserCreate,UserVerify,UserLogin
 from .models import User
 
 from .config import mail_conf
@@ -59,8 +59,30 @@ async def register_api(user:UserCreate,db:Annotated[Session,Depends(get_db)]):
 async def verify_code(user_verify:UserVerify,db:Annotated[Session,Depends(get_db)]):
     user = db.query(User).filter(User.email == user_verify.email).first()
 
+
     if user:
         if user.verification_code == int(user_verify.verification_code):
+            user.is_active = True
+            user.is_verified = True
             return{"message":"succes"}
-        
-    raise HTTPException(status_code=400,detail="erroor")
+        else:  
+            raise HTTPException(status_code=400,detail="erroor")
+
+    else:
+        raise HTTPException(status_code=400,detail="User topilmadi afsus")
+
+@router.post("/login")
+async def login_api(user_data:UserLogin,db:Annotated[Session,Depends(get_db)]):
+        user = db.query(User).filter(User.email == user_data.email,User.is_verified==True,User.is_active==True).first()
+
+        if user:
+             is_valid = pwd_context.verify(user_data.password,user.hashed_password)
+
+             if is_valid:
+                  return{"message":"secces"}
+             
+             else:
+                  raise HTTPException(status_code=401,detail="password xato")
+        else:
+             raise HTTPException(status_code=400,detail="User yoq")
+             
